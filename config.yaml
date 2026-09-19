@@ -1,0 +1,82 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Research engine configuration
+# Edit this file (on GitHub or locally) to steer what the nightly build researches.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Every ticker here gets a full deep dive each run: 4-5 years of statements,
+# a DCF, trading comps, and price history.
+watchlist:
+  - AAPL
+  - MSFT
+  - COST
+  - FDX     # Memphis
+  - CALM    # Cal-Maine Foods, Ridgeland MS
+
+# The screening universe: every common stock listed on these exchanges
+# (~6,000 companies). S&P 500/400/600 membership is tagged for filtering.
+#
+# Yahoo rate-limits bulk requests, so each run refreshes for at most
+# time_budget_minutes: S&P 1500 + watchlist names first, then whichever rows are
+# oldest. Everything cycles through every few runs; nothing is dropped.
+universe:
+  exchanges: ["NYSE", "Nasdaq"]
+  time_budget_minutes: 45
+
+# Valuation defaults. The risk-free rate is pulled live from the 10Y Treasury
+# (^TNX) each run; the value here is only a fallback.
+macro:
+  risk_free_rate: 0.043
+  equity_risk_premium: 0.050
+  terminal_growth: 0.025
+
+# Saved screens. They show up as presets in the dashboard screener, and the
+# top `deep_dive_top` names from each get a full deep dive every run.
+#
+# Numeric filters take {min, max}; `sector`, `industry`, `exchange` and `index`
+# take a list (index values: "500", "400", "600", or "" for non-S&P).
+# Field keys are defined in engine/metrics.py (FIELDS).
+screens:
+  - id: quality_value
+    name: Quality at a fair price
+    description: High-return, high-margin businesses with modest leverage, not priced for perfection.
+    filters:
+      mcap: {min: 2.0e9}
+      roe: {min: 0.15}
+      op_m: {min: 0.15}
+      ev_ebitda: {max: 15}
+      net_debt_ebitda: {max: 2.5}
+    sort: {key: fcf_yield, desc: true}
+    deep_dive_top: 5
+
+  - id: garp
+    name: Growth at a reasonable price
+    description: Double-digit revenue growth with a forward P/E that hasn't run away.
+    filters:
+      mcap: {min: 1.0e9}
+      rev_g: {min: 0.10}
+      fpe: {min: 0, max: 22}
+      op_m: {min: 0.08}
+    sort: {key: rev_g, desc: true}
+    deep_dive_top: 5
+
+  - id: fallen_quality
+    name: Beaten-down quality
+    description: Profitable companies trading 25%+ below their 52-week high. Find out why.
+    filters:
+      mcap: {min: 2.0e9}
+      off_high: {max: -0.25}
+      roe: {min: 0.12}
+      net_m: {min: 0.08}
+    sort: {key: off_high, desc: false}
+    deep_dive_top: 5
+
+  - id: small_cap_value
+    name: Small-cap cash cows
+    description: S&P 600 names with high free cash flow yields and clean balance sheets.
+    filters:
+      index: ["600"]
+      fcf_yield: {min: 0.07}
+      net_debt_ebitda: {max: 2.0}
+      op_m: {min: 0.05}
+    sort: {key: fcf_yield, desc: true}
+    deep_dive_top: 5
