@@ -5,6 +5,47 @@
 // Keys match screener field keys and DCF assumption keys where they overlap.
 
 export const GLOSSARY = {
+  // ─── The idea ranking ──────────────────────────────────────────────────────
+  fv: {
+    title: 'Fair value',
+    plain: 'What the stock looks worth per share, averaging two quick methods: a cash-flow model and what the market pays for similar companies.',
+    formula: 'Average of the quick DCF and the peer-comps value (comps alone for banks, insurers and REITs)',
+    pitch: 'This is a shortlisting number built from one data pull, not a pitch. Open the company and run the full model before you put a target on a slide.',
+  },
+  upside: {
+    title: 'Upside to fair value',
+    plain: 'How far fair value sits above (or below) today\'s price. The ranking on this page is sorted by it.',
+    formula: 'Fair value ÷ price − 1',
+    pitch: 'Most clubs want 15–20%+ before buying, as a margin of safety for being wrong.',
+  },
+  fv_dcf: {
+    title: 'Quick DCF value',
+    plain: 'Value from projecting the cash the company actually generates for shareholders over five years, then discounting it back to today.',
+    formula: 'Levered free cash flow grown from the latest revenue growth rate, faded toward 2.5%, discounted at the cost of equity (risk-free + beta × equity risk premium)',
+    pitch: 'Skipped for banks, insurers and REITs, where "free cash flow" doesn\'t mean what it means elsewhere.',
+  },
+  fv_comps: {
+    title: 'Comps value',
+    plain: 'What the stock would be worth if the market valued it the same way it values its closest peers.',
+    formula: 'Median of the prices implied by peer median EV/EBITDA, EV/Revenue, P/E, forward P/E and P/B',
+  },
+  spread: {
+    title: 'Method agreement',
+    plain: 'How far apart the cash-flow value and the comps value are. Small means two different methods reached a similar answer, which is a reason to trust the ranking; wide means they disagree.',
+    formula: '|DCF value − comps value| ÷ fair value. For names with no DCF (banks, insurers, REITs, cash-burning utilities) it measures how much the individual peer multiples agree with each other instead. Either way, ideas must be within 50%.',
+    pitch: 'Lead with names where both methods agree — it is the first thing a skeptical committee probes.',
+  },
+  idea_filter: {
+    title: 'Idea filters',
+    plain: 'Before a name is ranked it must generate positive free cash flow, carry less than 4x net debt to EBITDA, have enough peers for real comps, land within ±100% of fair value (beyond that is usually bad data), and have both methods agree within 50%.',
+    pitch: 'Names that fail are not necessarily bad — they are just not rankable this way. Screen them by hand.',
+  },
+  sector_rule: {
+    title: 'Sector coverage',
+    plain: 'OMIG must hold a position in all 11 GICS sectors at all times, so the dashboard always shows every sector, including ones where nothing currently looks cheap.',
+    pitch: 'A sector with no compelling idea is exactly where you will be asked to present. Screen it by hand and pitch the least-bad name with clear eyes about it.',
+  },
+
   // ─── Market ────────────────────────────────────────────────────────────────
   price: {
     title: 'Price',

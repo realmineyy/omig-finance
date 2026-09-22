@@ -369,3 +369,19 @@ dialog.settings input { width: 100%; }
   .hero { font-size: 32px; }
 }
 table.model thead th.wide { text-align: left; }
+
+/* ─── Best idea by sector ─────────────────────────────────────────────────── */
+.sector-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.sector-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.sector-card.empty-sector { border-style: dashed; }
+.sector-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.sector-name { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+.sector-pick { display: flex; align-items: baseline; gap: 8px; color: var(--ink); font-size: 20px; }
+.sector-pick:hover { text-decoration: none; color: var(--link); }
+.sector-pick .tk { font-size: 20px; font-weight: 700; }
+.sector-upside { margin-left: auto; font-size: 15px; }
+.sector-name-full { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sector-runners { border-top: 1px solid var(--grid); margin-top: 4px; padding-top: 4px; }
+.agree .muted { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.agree.close { color: var(--up); }
+.agree.wide { color: var(--muted); }

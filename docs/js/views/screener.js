@@ -4,9 +4,8 @@ import { loadIndex, loadMeta, loadUniverse } from '../data.js';
 import { byFmt, fromInput, INPUT_UNITS, toInput } from '../format.js';
 import { csvCell, download, esc, info, sortRows, table, wireRowLinks, wireSort } from '../ui.js';
 
-const CATEGORICAL = new Set(['sector', 'industry', 'exchange', 'index']);
-const INDEX_LABELS = { 500: 'S&P 500', 400: 'S&P 400', 600: 'S&P 600', '': 'Not in S&P' };
-const DEFAULT_COLS = ['mcap', 'pe', 'ev_ebitda', 'fcf_yield', 'op_m', 'roe', 'rev_g', 'net_debt_ebitda', 'off_high', 'target_upside'];
+const CATEGORICAL = new Set(['sector', 'industry']);
+const DEFAULT_COLS = ['upside', 'fv', 'mcap', 'pe', 'ev_ebitda', 'fcf_yield', 'op_m', 'roe', 'rev_g', 'net_debt_ebitda', 'off_high'];
 const PAGE = 200;
 
 export function matches(row, filters) {
@@ -29,7 +28,7 @@ function readState(params, meta) {
   }
   const preset = meta.screens.find(s => s.id === params.get('preset'));
   if (preset) return { preset: preset.id, filters: structuredClone(preset.filters), sort: preset.sort || { key: 'mcap', desc: true }, q: '' };
-  return { filters: { mcap: { min: 2e9 } }, sort: { key: 'mcap', desc: true }, q: '' };
+  return { filters: {}, sort: { key: 'upside', desc: true }, q: '' };
 }
 
 export async function renderScreener(root, params) {
@@ -37,7 +36,7 @@ export async function renderScreener(root, params) {
   const fields = Object.fromEntries(meta.fields.map(f => [f.key, f]));
   const deep = new Set(index.companies.map(c => c.ticker));
   const sectors = [...new Set(universe.rows.map(r => r.sector))].sort();
-  const exchanges = [...new Set(universe.rows.map(r => r.exchange).filter(Boolean))].sort();
+  const sectorCounts = Object.fromEntries(sectors.map(s => [s, universe.rows.filter(r => r.sector === s).length]));
   let state = readState(params, meta);
   let showAll = false;
 
@@ -45,7 +44,7 @@ export async function renderScreener(root, params) {
   root.innerHTML = `
     <section class="page-head">
       <div><h1>Screener</h1>
-        <p class="muted">${universe.rows.length.toLocaleString()} stocks listed on the ${esc(meta.exchanges.join(' and '))} · Filters combine with AND</p></div>
+        <p class="muted">${universe.rows.length} S&amp;P 500 names · every one valued nightly · filters combine with AND</p></div>
     </section>
     <section class="card filters">
       <div class="filter-row">
@@ -61,8 +60,6 @@ export async function renderScreener(root, params) {
       </div>
       <p id="preset-desc" class="muted small"></p>
       <div class="chip-row" id="sectors" role="group" aria-label="Sectors"></div>
-      <div class="chip-row" id="indexes" role="group" aria-label="Index"></div>
-      <div class="chip-row" id="exchanges" role="group" aria-label="Exchange"></div>
       <label class="field industry"><span>Industry</span><select id="industry"></select></label>
       <div id="numeric"></div>
       <label class="field add-filter"><span>Add a filter</span>
@@ -93,9 +90,7 @@ export async function renderScreener(root, params) {
       return `<span class="chip-label">${title}</span>` + values.map(v =>
         `<button type="button" class="chip toggle" aria-pressed="${sel.includes(String(v))}" data-key="${key}" data-val="${esc(v)}">${esc(labelOf(v))}</button>`).join('');
     };
-    $('#sectors').innerHTML = chips('sector', 'Sector', sectors);
-    $('#indexes').innerHTML = chips('index', 'Index', ['500', '400', '600', ''], v => INDEX_LABELS[v]);
-    $('#exchanges').innerHTML = chips('exchange', 'Exchange', exchanges);
+    $('#sectors').innerHTML = chips('sector', 'Sector', sectors, s => `${s} (${sectorCounts[s] ?? 0})`);
     // Industry list narrows to the selected sectors.
     const secSel = state.filters.sector || [];
     const industries = [...new Set(universe.rows.filter(r => !secSel.length || secSel.includes(r.sector)).map(r => r.industry))].sort();

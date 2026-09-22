@@ -19,23 +19,18 @@ from .financials import normalize, price_history, statement_fx
 from .metrics import FIELD_KEYS, FIELDS, clean, screener_row
 from .news import Linker, parse as parse_news
 from .profile import estimates, officers, ownership
+from .quickval import best_by_sector, value_row
 from .screens import run_screen
-from .universe import load_listings
+from .universe import SECTORS, load_sp500
 from .valuation import comps, default_assumptions, find_peers, run_dcf, sensitivity, wacc, warnings_for
 
 log = logging.getLogger("engine")
 
-# Yahoo's sector names -> GICS names, so sectors read the way the Street writes them.
-YAHOO_TO_GICS = {
-    "Technology": "Information Technology", "Healthcare": "Health Care",
-    "Financial Services": "Financials", "Consumer Cyclical": "Consumer Discretionary",
-    "Consumer Defensive": "Consumer Staples", "Basic Materials": "Materials",
-    "Communication Services": "Communication Services", "Industrials": "Industrials",
-    "Energy": "Energy", "Utilities": "Utilities", "Real Estate": "Real Estate",
-}
-ROW_ID = ["ticker", "name", "sector", "industry", "exchange", "index", "cik"]
+ROW_ID = ["ticker", "name", "sector", "industry", "cik"]
+VALUATION_KEYS = ["fv", "upside", "fv_dcf", "fv_comps", "spread", "peers", "idea"]
 PEER_FIELDS = ROW_ID + ["price", "mcap", "ev_ebitda", "ev_rev", "pe", "fpe", "pb", "op_m", "rev_g", "roe"]
 STALE_DAYS = 3  # rows older than this are tagged "stale" in the screener
+OUTSIDE_SP500 = "Not in the S&P 500"  # sector label for researched non-constituents
 
 
 def now_iso() -> str:
@@ -61,49 +56,52 @@ def write_json(path: Path, obj) -> None:
 # ─── Universe ─────────────────────────────────────────────────────────────────
 
 def base_row(listing: dict, info: dict) -> dict:
+    """Identity comes from the S&P 500 table (official GICS), not from Yahoo."""
     return {
         "ticker": listing["ticker"],
-        "name": info.get("longName") or info.get("shortName") or listing.get("name") or listing["ticker"],
-        "sector": YAHOO_TO_GICS.get(info.get("sector"), info.get("sector") or "Other"),
-        "industry": info.get("industry") or "Other",
-        "exchange": listing.get("exchange") or info.get("exchange") or "",
-        "index": str(listing.get("index") or ""),
-        "cik": int(listing["cik"]) if listing.get("cik") else None,
+        "name": listing.get("name") or info.get("longName") or listing["ticker"],
+        "sector": listing.get("sector") or "Unclassified",
+        "industry": listing.get("industry") or "Unclassified",
+        "cik": int(listing["cik"]) if listing.get("cik") == listing.get("cik") and listing.get("cik") else None,
     }
 
 
-def build_universe(cfg: dict, limit: int | None, previous: dict[str, dict], priority: set[str],
-                   budget_min: float) -> tuple[list[dict], dict[str, dict]]:
-    """Rolling refresh: priority names first, then the oldest rows, until the time
-    budget runs out. Rows not reached this run keep their last good data."""
-    listings = load_listings(cfg["universe"]["exchanges"])
+def build_universe(cfg: dict, limit: int | None, previous: dict[str, dict],
+                   macro: dict, budget_min: float) -> tuple[list[dict], dict[str, dict]]:
+    """Refresh every S&P 500 name, then value all of them.
+
+    A name Yahoo won't serve keeps its last good row (tagged stale in the UI)
+    rather than vanishing from the screener.
+    """
+    constituents = load_sp500()
     if limit:
-        listings = listings.head(limit)  # the SEC file is roughly ordered by size
-    records = listings.to_dict("records")
-    order = sorted(records, key=lambda l: (
-        not (l["ticker"] in priority or l["index"]),            # S&P 1500 + watchlist + deep dives first
-        (previous.get(l["ticker"]) or {}).get("updated") or "",  # then oldest (never fetched = oldest)
-    ))
-    log.info("Universe: %d listings on %s; refreshing for up to %.0f min",
-             len(records), " + ".join(cfg["universe"]["exchanges"]), budget_min)
+        constituents = constituents.head(limit)
+    records = constituents.to_dict("records")
+    log.info("Universe: %d S&P 500 constituents; refreshing for up to %.0f min", len(records), budget_min)
     deadline = time.monotonic() + budget_min * 60
-    infos, _, _ = fetch.snapshots([l["ticker"] for l in order], deadline=deadline)
+    infos, _, _ = fetch.snapshots([r["ticker"] for r in records], deadline=deadline)
 
     today = date.today().isoformat()
-    rows, funds, carried = [], 0, 0
+    rows, carried = [], 0
     for listing in records:
-        t = listing["ticker"]
-        info = infos.get(t)
+        info = infos.get(listing["ticker"])
         if info is not None:
-            if info.get("quoteType") not in (None, "EQUITY"):
-                funds += 1  # closed-end funds, trusts, etc. that slipped through
-                continue
             rows.append({**screener_row(base_row(listing, info), info), "updated": today})
-        elif t in previous:
-            rows.append({**previous[t], "index": listing["index"]})
+        elif listing["ticker"] in previous:
+            # Keep identity fresh (sector changes, renames) but reuse the numbers.
+            rows.append({**previous[listing["ticker"]], **base_row(listing, {})})
             carried += 1
-    log.info("Universe: %d rows (%d refreshed, %d carried from earlier runs, %d funds skipped)",
-             len(rows), len(rows) - carried, carried, funds)
+
+    # Valuations come last: peer comps need every row in place first.
+    valued = 0
+    for row in rows:
+        info = infos.get(row["ticker"])
+        if info is None:
+            continue  # carried rows keep the valuation from their last good run
+        row.update(value_row(row, info, rows, macro))
+        valued += 1
+    log.info("Universe: %d rows (%d refreshed, %d carried), %d valued, %d flagged as ideas",
+             len(rows), len(rows) - carried, carried, valued, sum(1 for r in rows if r.get("idea")))
     return rows, infos
 
 
@@ -116,7 +114,7 @@ def load_universe() -> tuple[list[dict], str | None]:
 
 
 def save_universe(rows: list[dict], as_of: str) -> None:
-    columns = ROW_ID + FIELD_KEYS + ["updated", "stale"]
+    columns = ROW_ID + FIELD_KEYS + VALUATION_KEYS + ["earnings", "updated", "stale"]
     cutoff = (date.today() - timedelta(days=STALE_DAYS)).isoformat()
     for r in rows:
         r["stale"] = (r.get("updated") or "") < cutoff
@@ -126,7 +124,7 @@ def save_universe(rows: list[dict], as_of: str) -> None:
 
 
 def ensure_rows(tickers: list[str], rows: list[dict], infos: dict) -> None:
-    """Add any deep-dive ticker that isn't a NYSE/Nasdaq listing (e.g. an OTC ADR)."""
+    """Add a requested ticker that isn't in the S&P 500 (research is still allowed)."""
     known = {r["ticker"] for r in rows}
     for t in tickers:
         if t in known:
@@ -137,8 +135,9 @@ def ensure_rows(tickers: list[str], rows: list[dict], infos: dict) -> None:
             log.warning("Could not find %s: %s", t, exc)
             continue
         infos[t] = info
-        rows.append({**screener_row(base_row({"ticker": t, "exchange": "other"}, info), info),
-                     "updated": date.today().isoformat()})
+        base = {"ticker": t, "name": info.get("longName") or info.get("shortName") or t,
+                "sector": OUTSIDE_SP500, "industry": info.get("industry") or "Unclassified", "cik": None}
+        rows.append({**screener_row(base, info), "updated": date.today().isoformat()})
 
 
 # ─── Deep dive ────────────────────────────────────────────────────────────────
@@ -265,8 +264,9 @@ def main(argv=None) -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--skip-universe", action="store_true", help="reuse the existing universe.json")
     p.add_argument("--tickers", default="", help="comma-separated extra deep dives")
-    p.add_argument("--limit", type=int, help="only the largest N listings (dev)")
+    p.add_argument("--limit", type=int, help="only the first N constituents (dev)")
     p.add_argument("--budget", type=float, help="minutes to spend refreshing the universe (overrides config)")
+    p.add_argument("--deep-dives", type=int, help="cap how many deep dives run (dev)")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
@@ -284,9 +284,8 @@ def main(argv=None) -> None:
     if args.skip_universe and previous:
         rows, infos, universe_as_of = previous, {}, previous_as_of
     else:
-        priority = {t.upper() for t in cfg["watchlist"]} | set(requested) | {p.stem for p in COMPANY_DIR.glob("*.json")}
-        rows, infos = build_universe(cfg, args.limit, {r["ticker"]: r for r in previous}, priority,
-                                     args.budget or cfg["universe"]["time_budget_minutes"])
+        rows, infos = build_universe(cfg, args.limit, {r["ticker"]: r for r in previous}, macro,
+                                     args.budget or cfg["universe"]["budget_minutes"])
         universe_as_of = now_iso()
 
     # Who gets a deep dive, and why.
@@ -296,12 +295,19 @@ def main(argv=None) -> None:
     for t in requested:
         reasons.setdefault(t, []).append("requested")
     ensure_rows(list(reasons), rows, infos)
+    # OMIG must hold every sector, so the top ideas in each sector get a full model.
+    per_sector = cfg["deep_dives"]["per_sector"]
+    for sector, ideas in best_by_sector(rows, SECTORS, per_sector).items():
+        for r in ideas:
+            reasons.setdefault(r["ticker"], []).append("top_idea")
     for screen in cfg["screens"]:
         for r in run_screen(rows, screen)[: screen.get("deep_dive_top", 0)]:
             reasons.setdefault(r["ticker"], []).append(screen["id"])
     if not args.skip_universe:  # nightly: keep earlier (e.g. on-demand) deep dives from going stale
         for t, why in stale_deep_dives(REFRESH_DAYS, set(reasons))[:REFRESH_CAP]:
             reasons[t] = why
+    if args.deep_dives:
+        reasons = dict(list(reasons.items())[:args.deep_dives])
     save_universe(rows, universe_as_of)
 
     linker = Linker(rows)
@@ -325,7 +331,7 @@ def main(argv=None) -> None:
         "built_at": now_iso(),
         "universe_as_of": universe_as_of,
         "universe_size": len(rows),
-        "exchanges": cfg["universe"]["exchanges"],
+        "sectors": SECTORS,
         "macro": macro,
         "fields": [dict(zip(("key", "label", "fmt", "group", "desc"), f)) for f in FIELDS],
         "screens": cfg["screens"],

@@ -61,9 +61,23 @@ function renderSnapshotOnly(root, ticker, row, meta) {
     return;
   }
   const groups = [...new Set(meta.fields.map(f => f.group))];
+  const tile = (l, term, v, sub = '') => `<div class="tile"><span class="tile-label">${label(l, term)}</span>
+    <span class="tile-value">${price(v)}</span><span class="tile-sub">${sub}</span></div>`;
   root.innerHTML = `
-    ${header({ ticker, name: row.name, sector: row.sector, industry: row.industry, exchange: row.exchange, cik: row.cik, price: row.price })}
-    <section class="card notice"><strong>Screener data only</strong>${how}</section>
+    ${header({ ticker, name: row.name, sector: row.sector, industry: row.industry, cik: row.cik, price: row.price })}
+    ${row.fv ? `<section class="card">
+      <div class="card-head"><h2>Quick valuation ${info('fv')}</h2>
+        <p class="muted">From one data pull, for ranking only. Build the full model for a pitch.</p></div>
+      <div class="tiles">
+        ${tile('Fair value', 'fv', row.fv, upside(row.upside))}
+        ${tile('Quick DCF', 'fv_dcf', row.fv_dcf)}
+        ${tile('Comps', 'fv_comps', row.fv_comps, row.peers ? `${row.peers} peers` : '')}
+        <div class="tile"><span class="tile-label">${label('Method agreement', 'spread')}</span>
+          <span class="tile-value">${row.spread == null ? '—' : pct(row.spread, 0)}</span>
+          <span class="tile-sub">${row.idea ? 'passes idea filters' : 'below idea filters'}</span></div>
+      </div>
+    </section>` : ''}
+    <section class="card notice"><strong>No full model yet</strong>${how}</section>
     <section class="card"><div class="metric-groups">
       ${groups.map(g => `<div class="metric-group"><h3>${esc(g)}</h3><dl>
         ${meta.fields.filter(f => f.group === g).map(f => `<div><dt>${esc(f.label)}${info(f.key)}</dt><dd>${byFmt(f.fmt, row[f.key])}</dd></div>`).join('')}

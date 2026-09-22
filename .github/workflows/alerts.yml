@@ -1,0 +1,54 @@
+name: Market alerts
+
+on:
+  schedule:
+    # Morning brief: 11:00 UTC = 6:00am Central, before the open.
+    - cron: "0 11 * * 1-5"
+    # Breaking moves: every 30 min from just before the open to the close
+    # (13:00-20:30 UTC = 8:00am-3:30pm Central).
+    - cron: "*/30 13-20 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Which alert to send"
+        type: choice
+        options: [test, brief, breaking]
+        default: test
+
+# Never let two alert runs fight over the "already sent" state.
+concurrency:
+  group: market-alerts
+  cancel-in-progress: false
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      # Remembers what was already sent today, so nothing pings twice.
+      - uses: actions/cache@v4
+        with:
+          path: cache/alerts_state.json
+          key: alerts-state-${{ github.run_id }}
+          restore-keys: alerts-state-
+
+      - name: Send alert
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MODE: ${{ inputs.mode || (github.event.schedule == '0 11 * * 1-5' && 'brief' || 'breaking') }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "::warning::Telegram secrets not set — add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to use alerts."
+            exit 0
+          fi
+          python -m engine.alerts "$MODE"

@@ -9,11 +9,12 @@ converts at the latest FX rate and records the conversion in info["_fx"].
 Everything that touches Yahoo lives here, so swapping data vendors later
 means rewriting this one module.
 """
+import itertools
 import logging
+import queue
 import random
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
 import yfinance as yf
@@ -160,41 +161,61 @@ def snapshot(ticker: str, deadline: float | None = None) -> dict:
     return localize(info)
 
 
-def _pass(tickers: list[str], workers: int, deadline: float | None):
-    out, failed, missing, skipped = {}, [], [], []
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(snapshot, t, deadline): t for t in tickers}
-        for n, fut in enumerate(as_completed(futures), 1):
-            t = futures[fut]
+def snapshots(tickers: list[str], workers: int = 4, deadline: float | None = None):
+    """Fetch snapshots concurrently, returning (infos, failed, not_fetched).
+
+    Worker threads are daemons and the join has a timeout, so a request stuck
+    inside yfinance can never hold the whole run past `deadline`.
+    """
+    pending = queue.Queue()
+    for t in tickers:
+        pending.put(t)
+    out, failed, missing = {}, [], []
+    lock = threading.Lock()
+    done = itertools.count(1)
+
+    def work():
+        while True:
             try:
-                out[t] = fut.result()
+                ticker = pending.get_nowait()
+            except queue.Empty:
+                return
+            if deadline and time.monotonic() > deadline:
+                return
+            try:
+                info = snapshot(ticker, deadline)
             except NotFound:
-                missing.append(t)
+                with lock:
+                    missing.append(ticker)
             except OutOfTime:
-                skipped.append(t)
+                return
             except Exception as exc:
-                failed.append(t)
-                log.debug("snapshot failed for %s: %s", t, exc)
-            if n % 500 == 0:
+                log.debug("snapshot failed for %s: %s", ticker, exc)
+                with lock:
+                    failed.append(ticker)
+            else:
+                with lock:
+                    out[ticker] = info
+            n = next(done)
+            if n % 100 == 0:
                 log.info("  snapshots: %d/%d (%d ok)", n, len(tickers), len(out))
-    return out, failed, missing, skipped
 
+    threads = [threading.Thread(target=work, daemon=True, name=f"snap{i}") for i in range(workers)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=max(1.0, deadline - time.monotonic()) if deadline else None)
 
-def snapshots(tickers: list[str], workers: int = 3, deadline: float | None = None):
-    """Fetch snapshots in priority order until `deadline` (time.monotonic()).
-    Returns (infos, failed, not_attempted)."""
-    out, failed, missing, skipped = _pass(tickers, workers, deadline)
-    if failed and (deadline is None or time.monotonic() < deadline - 120):
-        log.info("  retrying %d failures in a slower pass", len(failed))
-        more, failed, gone, late = _pass(failed, 1, deadline)
-        out.update(more)
-        missing += gone
-        skipped += late
-    if missing:
-        log.info("  %d symbols have no Yahoo quote (delisted/renamed)", len(missing))
-    if failed:
-        log.warning("  %d snapshots failed: %s", len(failed), ", ".join(sorted(failed)[:30]))
-    return out, failed, skipped
+    with lock:
+        fetched = set(out) | set(missing) | set(failed)
+        not_fetched = [t for t in tickers if t not in fetched]
+        if missing:
+            log.info("  %d symbols have no Yahoo quote (delisted/renamed)", len(missing))
+        if failed:
+            log.warning("  %d snapshots failed: %s", len(failed), ", ".join(sorted(failed)[:20]))
+        if not_fetched:
+            log.warning("  %d snapshots not reached before the deadline", len(not_fetched))
+        return dict(out), list(failed), not_fetched
 
 
 # ─── Deep-dive data ───────────────────────────────────────────────────────────

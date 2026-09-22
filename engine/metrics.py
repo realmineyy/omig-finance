@@ -5,12 +5,18 @@ written into docs/data/meta.json so the dashboard's labels, formats, and filter
 controls always match what the engine produced.
 """
 import math
+from datetime import datetime, timezone
 
 # key, label, format, group, description
 FIELDS = [
     ("price", "Price", "price", "Market", "Last price"),
     ("mcap", "Market cap", "money", "Market", "Equity market value"),
     ("ev", "Enterprise value", "money", "Market", "Market cap + debt - cash"),
+    ("fv", "Fair value", "price", "Valuation", "Average of the quick DCF and peer-comps value"),
+    ("upside", "Upside to fair value", "pct", "Valuation", "Fair value vs. today's price"),
+    ("fv_dcf", "Quick DCF value", "price", "Valuation", "5-year levered free cash flow DCF"),
+    ("fv_comps", "Comps value", "price", "Valuation", "Median price implied by peer multiples"),
+    ("spread", "Method spread", "pct", "Valuation", "Gap between the DCF and comps values; small = the two agree"),
     ("pe", "P/E (TTM)", "x", "Valuation", "Price / trailing 12-month diluted EPS"),
     ("fpe", "P/E (fwd)", "x", "Valuation", "Price / consensus next-year EPS"),
     ("peg", "PEG", "x", "Valuation", "P/E divided by expected EPS growth"),
@@ -101,4 +107,10 @@ def screener_row(base: dict, info: dict) -> dict:
         "rec": g("recommendationMean"),
         "analysts": g("numberOfAnalystOpinions"),
     }
-    return {**base, **{k: _round(v) for k, v in row.items()}}
+    # Next scheduled earnings date (used by the morning brief), as YYYY-MM-DD.
+    stamp = clean(info.get("earningsTimestampStart")) or clean(info.get("earningsTimestamp"))
+    try:
+        earnings = datetime.fromtimestamp(stamp, timezone.utc).strftime("%Y-%m-%d") if stamp else None
+    except (OverflowError, OSError, ValueError):
+        earnings = None
+    return {**base, **{k: _round(v) for k, v in row.items()}, "earnings": earnings}

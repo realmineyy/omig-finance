@@ -22,7 +22,7 @@ async function route() {
     else if (parts[0] === 'holder' && parts[1]) await renderHolder(root, decodeURIComponent(parts[1]));
     else await renderHome(root);
     const h1 = root.querySelector('h1');
-    document.title = h1 ? `${h1.textContent.trim()} · Equity Research` : 'Equity Research';
+    document.title = h1 ? `${h1.textContent.trim()} · OMIG Research` : 'OMIG Research';
   } catch (err) {
     console.error(err);
     root.innerHTML = `<section class="card"><h1>Couldn't load data</h1>

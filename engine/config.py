@@ -18,9 +18,8 @@ def load_config(path: Path = CONFIG_PATH) -> dict:
         cfg = yaml.safe_load(f) or {}
     cfg.setdefault("watchlist", [])
     cfg.setdefault("screens", [])
-    universe = cfg.setdefault("universe", {})
-    universe.setdefault("exchanges", ["NYSE", "Nasdaq"])
-    universe.setdefault("time_budget_minutes", 45)
+    cfg.setdefault("universe", {}).setdefault("budget_minutes", 25)
+    cfg.setdefault("deep_dives", {}).setdefault("per_sector", 2)
     macro = cfg.setdefault("macro", {})
     macro.setdefault("risk_free_rate", 0.043)
     macro.setdefault("equity_risk_premium", 0.05)

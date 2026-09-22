@@ -1,9 +1,9 @@
 """Screen evaluation. docs/js/screener.js applies the same filter format in the browser.
 
 A screen's filters map a field key to either {min, max} (numeric) or a list of
-allowed values (categorical: sector, industry, exchange, index).
+allowed values (categorical: sector, industry).
 """
-CATEGORICAL = {"sector", "industry", "exchange", "index"}
+CATEGORICAL = {"sector", "industry"}
 
 
 def matches(row: dict, filters: dict) -> bool:
