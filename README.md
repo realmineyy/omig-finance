@@ -45,7 +45,11 @@ The quick valuation is deliberately conservative: free cash flow is capped at 1.
 3. **Settings → Pages**: Source = *Deploy from a branch*, Branch = `main`, folder = `/docs`.
 4. **Settings → Actions → General → Workflow permissions**: *Read and write permissions*.
 5. **Actions → Refresh research data → Run workflow** to kick off the first build.
-6. **Phone alerts (Telegram).** In Telegram: message [@BotFather](https://t.me/BotFather) → `/newbot` → copy the token. Then message your new bot once (say "hi"), open `https://api.telegram.org/bot<TOKEN>/getUpdates` in a browser and copy the `chat.id` number. In the repo: **Settings → Secrets and variables → Actions → New repository secret**, add `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. Test it with **Actions → Market alerts → Run workflow → test**.
+6. **Phone alerts (Telegram).** Message [@BotFather](https://t.me/BotFather) in Telegram → `/newbot` → copy the token it gives you. Then run:
+   ```bash
+   python3 tools/telegram_setup.py
+   ```
+   It checks the token, waits for you to message your new bot, prints your chat id and sends a test alert. Add the two values it names as repository secrets (**Settings → Secrets and variables → Actions**): `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. Confirm with **Actions → Market alerts → Run workflow → test**.
 7. **Run deep dive button.** On each device, tap ⚙ in the site's top bar and follow the steps: a [fine-grained token](https://github.com/settings/personal-access-tokens/new) limited to this repo with only **Actions: Read and write**. Stored in that browser only.
 
 The site will be at `https://realmineyy.github.io/omig-finance/`.
@@ -100,6 +104,7 @@ python3 tools/serve.py                                # http://localhost:8000
 | `engine/news.py` | News parsing + auto-linking companies named in a headline |
 | `docs/js/dcf.js` | The same DCF in JavaScript for live editing (kept identical by `tests/`) |
 | `docs/js/glossary.js` | Every ⓘ explanation |
+| `tools/telegram_setup.py` | One-time bot setup: finds your chat id, sends a test alert |
 | `.github/workflows/` | `refresh.yml` (data), `alerts.yml` (Telegram) |
 
 ## Data sources and caveats
