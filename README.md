@@ -36,10 +36,10 @@ The quick valuation is deliberately conservative: free cash flow is capped at 1.
 
 ## One-time setup
 
-1. Create an empty repository on GitHub (e.g. `omig-research`). Don't add a README.
+1. Create an empty repository on GitHub (e.g. `omig-finance`). Don't add a README.
 2. Push this folder:
    ```bash
-   git remote add origin https://github.com/<you>/omig-research.git
+   git remote add origin https://github.com/realmineyy/omig-finance.git
    git push -u origin main
    ```
 3. **Settings → Pages**: Source = *Deploy from a branch*, Branch = `main`, folder = `/docs`.
@@ -48,7 +48,7 @@ The quick valuation is deliberately conservative: free cash flow is capped at 1.
 6. **Phone alerts (Telegram).** In Telegram: message [@BotFather](https://t.me/BotFather) → `/newbot` → copy the token. Then message your new bot once (say "hi"), open `https://api.telegram.org/bot<TOKEN>/getUpdates` in a browser and copy the `chat.id` number. In the repo: **Settings → Secrets and variables → Actions → New repository secret**, add `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. Test it with **Actions → Market alerts → Run workflow → test**.
 7. **Run deep dive button.** On each device, tap ⚙ in the site's top bar and follow the steps: a [fine-grained token](https://github.com/settings/personal-access-tokens/new) limited to this repo with only **Actions: Read and write**. Stored in that browser only.
 
-The site will be at `https://<you>.github.io/omig-research/`.
+The site will be at `https://realmineyy.github.io/omig-finance/`.
 
 > Public repos get GitHub Pages free. For a private repo you need GitHub Pro — free for students via the [GitHub Student Developer Pack](https://education.github.com/pack).
 
