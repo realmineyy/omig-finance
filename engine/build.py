@@ -197,7 +197,8 @@ def deep_dive(ticker: str, row: dict, info: dict, rows: list[dict], macro: dict,
             "sens_exit": sensitivity(a, "exit"),
         },
         "comps": {"peers": [{k: p.get(k) for k in PEER_FIELDS} for p in peers], **comp},
-        "warnings": warnings_for(row["sector"], fin, a, fx and {**fx, "statements_converted": stmt_rate != 1.0}),
+        "warnings": warnings_for(row["sector"], row.get("industry", ""), fin, a,
+                                 fx and {**fx, "statements_converted": stmt_rate != 1.0}, dcf),
     }
 
 

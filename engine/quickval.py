@@ -12,7 +12,7 @@ pitching: open the company and run a full deep dive before you use a number.
 import statistics
 
 from .metrics import clean
-from .valuation import clamp, comps, find_peers, path, percentile
+from .valuation import clamp, comps, dcf_unsuitable, find_peers, path, percentile
 
 # Ideas must clear these before they can top the list: real cash generation, a
 # sane balance sheet, a result that isn't an obvious data error, and — most
@@ -26,9 +26,9 @@ MAX_SPREAD = 0.5  # |DCF - comps| / fair value, or the spread among multiples
 FCF_CAP_VS_EARNINGS = 1.25
 MIN_EQUITY_PREMIUM = 0.035  # floor on cost of equity above the risk-free rate
 
-# Banks, insurers and REITs fund themselves with debt as a matter of business, so
-# "free cash flow" doesn't mean what it means elsewhere. Value them on multiples.
-COMPS_ONLY_SECTORS = {"Financials", "Real Estate"}
+# Banks, insurers, REITs and managed care fund themselves with debt or float as a
+# matter of business, so "free cash flow" doesn't mean what it means elsewhere.
+# engine.valuation.dcf_unsuitable() decides; the full model uses the same rule.
 
 
 def quick_dcf(info: dict, macro: dict) -> dict | None:
@@ -74,7 +74,7 @@ def is_live_idea(row: dict) -> bool:
 def value_row(row: dict, info: dict, rows: list[dict], macro: dict) -> dict:
     """Fair value for one name: quick DCF and peer comps, averaged where both apply."""
     price = row.get("price")
-    comps_only = row["sector"] in COMPS_ONLY_SECTORS
+    comps_only = dcf_unsuitable(row["sector"], row.get("industry", ""))
     peers = find_peers(row["ticker"], rows)
     comp = comps(peers, info) if peers else {"multiples": {}, "implied": {}}
     implied = [v["mid"] for v in comp["implied"].values() if v["mid"] > 0]

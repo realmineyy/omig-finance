@@ -12,6 +12,13 @@ from .metrics import clean
 
 # GICS sectors where an unlevered FCF DCF is the wrong tool.
 DCF_UNSUITABLE = {"Financials", "Real Estate"}
+# Managed care runs on premiums and reserves like an insurer, so it belongs with
+# them even though GICS files it under Health Care.
+DCF_UNSUITABLE_INDUSTRIES = {"Managed Health Care"}
+
+
+def dcf_unsuitable(sector: str, industry: str) -> bool:
+    return sector in DCF_UNSUITABLE or industry in DCF_UNSUITABLE_INDUSTRIES
 
 
 def clamp(x, lo, hi):
@@ -181,17 +188,27 @@ def default_assumptions(fin: dict, info: dict, macro: dict, peer_ev_ebitda, esti
     }
 
 
-def warnings_for(sector: str, fin: dict, a: dict, fx: dict | None = None) -> list[str]:
+def warnings_for(sector: str, industry: str, fin: dict, a: dict, fx: dict | None = None,
+                 dcf: dict | None = None) -> list[str]:
     out = []
+    base = (dcf or {}).get("perpetuity")
+    if base and base.get("upside", 0) > 1.0:
+        out.append(f"The default assumptions imply {base['upside'] * 100:.0f}% upside. A gap that wide usually means "
+                   "the model, not the market, is wrong: check the margin path, the discount rate and whether "
+                   "trailing cash flow is repeatable before quoting any number here.")
+    if base and (base.get("tv_share") or 0) > 0.85:
+        out.append(f"{base['tv_share'] * 100:.0f}% of the value sits in the terminal value, so this is really a bet "
+                   "on the long-run growth and exit assumptions rather than the five-year forecast.")
     if fx:
         note = (f"Historical statements were converted at today's rate ({fx['rate']:.4g}), so past growth partly "
                 "reflects currency moves. " if fx.get("statements_converted") else "")
         out.append(f"Foreign filer: reports in {fx['from']}, shown here in {fx['to']}. {note}"
                    "Per-share history is per ordinary share, which may differ from the ADR. For emerging markets, "
                    "add a country risk premium to the equity risk premium; the default WACC doesn't include one.")
-    if sector in DCF_UNSUITABLE:
-        out.append(f"{sector}: debt is part of operations here, so an unlevered-FCF DCF is misleading. "
-                   "Lean on P/B, P/E and dividend-based comps.")
+    if dcf_unsuitable(sector, industry):
+        what = industry if industry in DCF_UNSUITABLE_INDUSTRIES else sector
+        out.append(f"{what}: the balance sheet is the business here (premiums, reserves, leverage), so an "
+                   "unlevered-FCF DCF overstates value. Lean on the comps — P/E, P/B and forward P/E.")
     if len(fin["years"]) < 3:
         out.append(f"Only {len(fin['years'])} years of history. Defaults are thin; check them.")
     if a["ebit_margin_y1"] < 0:

@@ -66,6 +66,13 @@ def test_best_by_sector_ranks_and_covers_every_sector():
     assert out["Materials"] == []  # sector with no idea is still reported, empty
 
 
+def test_managed_care_is_valued_like_an_insurer_not_on_cash_flow():
+    rows = [_peer("ME", sector="Health Care", industry="Managed Health Care"),
+            *[_peer(f"P{i}", sector="Health Care", industry="Managed Health Care") for i in range(6)]]
+    out = value_row(rows[0], INFO, rows, MACRO)
+    assert out["fv_dcf"] is None and out["fv"] == out["fv_comps"]
+
+
 def test_financials_are_valued_on_comps_only():
     rows = [_peer("ME", sector="Financials", industry="Insurance"),
             *[_peer(f"P{i}", sector="Financials", industry="Insurance") for i in range(6)]]

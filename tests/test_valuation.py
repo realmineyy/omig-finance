@@ -108,3 +108,15 @@ def test_js_dcf_matches_python(tmp_path, overrides):
     assert out["dcf"]["exit"]["implied_growth"] == pytest.approx(py["exit"]["implied_growth"], rel=1e-10)
     flat = lambda grid: [v for row in grid for v in row]
     assert flat(out["sens"]["grid"]) == pytest.approx(flat(sensitivity(a, "exit")["grid"]), rel=1e-10)
+
+
+def test_extreme_model_output_is_flagged_for_review():
+    from engine.valuation import warnings_for
+    fin = {"years": ["2022", "2023", "2024", "2025"]}
+    a = {"ebit_margin_y1": 0.1}
+    hot = {"perpetuity": {"upside": 1.4, "tv_share": 0.9}}
+    warnings = warnings_for("Health Care", "Health Care Services", fin, a, None, hot)
+    assert any("140% upside" in w for w in warnings)
+    assert any("terminal value" in w for w in warnings)
+    assert warnings_for("Health Care", "Health Care Services", fin, a, None,
+                        {"perpetuity": {"upside": 0.2, "tv_share": 0.7}}) == []
