@@ -73,9 +73,11 @@ The site will be at `https://realmineyy.github.io/omig-finance/`.
 | When | What |
 |---|---|
 | Weekdays 6:00am CT | Morning brief: index/rates/commodities, S&P 500 names reporting today, your top 3 ideas, overnight headlines |
-| Every 30 min, market hours | Only if something happened: S&P 500 names moving 5%+ (with the headline, when a story actually names that company) and macro headlines (Fed, CPI, jobs, tariffs, oil…) |
+| Every 15 min, around the clock | **Company news** — headlines from six market feeds, matched to the S&P 500 names they name. **SEC filings** — 8-K (material event) and SC 13D (activist stake) as they hit EDGAR. **Big moves** — names moving 3%+ while the market is open, with the headline behind the move. **Market** — macro headlines (Fed, CPI, jobs, tariffs, oil…). |
 
-Nothing new means nothing is sent. Each item fires once per day.
+Nothing new means nothing is sent, and each headline, filing or mover fires once per day.
+Turn the volume down by editing `MAX_PER_SECTION` / `MOVE_THRESHOLD` in `engine/alerts.py`,
+or the cron in `.github/workflows/alerts.yml`.
 
 ## Running locally
 
@@ -102,6 +104,7 @@ python3 tools/serve.py                                # http://localhost:8000
 | `engine/metrics.py` | Screener fields (one definition the UI reads) |
 | `engine/alerts.py` | Morning brief and breaking alerts |
 | `engine/news.py` | News parsing + auto-linking companies named in a headline |
+| `engine/newsfeed.py` | The always-on feeds: six RSS sources + SEC current filings |
 | `docs/js/dcf.js` | The same DCF in JavaScript for live editing (kept identical by `tests/`) |
 | `docs/js/glossary.js` | Every ⓘ explanation |
 | `tools/telegram_setup.py` | One-time bot setup: finds your chat id, sends a test alert |

@@ -12,6 +12,9 @@ AMBIGUOUS = {
     "insight", "vital", "summit", "frontier", "alliance", "fortune", "liberty", "unity", "compass", "harmony",
     "matrix", "catalyst", "equity", "select", "premier", "pinnacle", "genesis", "vista", "atlas", "apex",
     "invesco", "mister", "big", "live", "open", "zoom", "fox", "news", "now", "ford", "shell", "chase",
+    # Index names: "the Dow", "the Nasdaq" almost always mean the index, not
+    # Dow Inc. or Nasdaq Inc. Those two still match via $DOW / (NASDAQ:NDAQ).
+    "dow", "nasdaq",
 }
 # Trailing descriptors headlines usually drop ("Cal-Maine Foods" -> "Cal-Maine").
 GENERIC_TAIL = {

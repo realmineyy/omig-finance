@@ -8,14 +8,15 @@ Credentials come from the environment (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID),
 which GitHub Actions fills from repository secrets. Nothing is stored in the repo.
 
 Breaking alerts remember what they already sent in cache/alerts_state.json so the
-same headline or mover never pings twice in a day.
+same headline, filing or mover never pings twice in a day.
 """
 import argparse
 import json
 import logging
 import os
 import re
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time as clock, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import requests
 import yfinance as yf
@@ -23,6 +24,7 @@ import yfinance as yf
 from .config import CACHE_DIR, SITE_DATA
 from .metrics import clean
 from .news import aliases
+from .newsfeed import collect
 
 log = logging.getLogger("alerts")
 
@@ -34,7 +36,13 @@ MARKET_BAR = [("^GSPC", "S&P 500"), ("^IXIC", "Nasdaq"), ("^VIX", "VIX"),
               ("^TNX", "10Y yield"), ("CL=F", "Crude"), ("GC=F", "Gold")]
 
 # A move this big in an S&P 500 name is worth interrupting someone for.
-MOVE_THRESHOLD = 0.05
+MOVE_THRESHOLD = 0.03
+# Telegram caps a message at 4096 characters; leave room for the closing link.
+MESSAGE_LIMIT = 3600
+# Cap per run so one busy hour can't fire off a wall of text.
+MAX_PER_SECTION = 12
+
+EASTERN = ZoneInfo("America/New_York")
 # Headlines about the whole market, not one company.
 MACRO_PATTERN = re.compile(
     r"\b(fed|fomc|powell|rate cut|rate hike|inflation|cpi|ppi|jobs report|payrolls|unemployment|"
@@ -71,6 +79,26 @@ def site_url() -> str:
     return ""
 
 
+def market_open_now(now: datetime | None = None) -> bool:
+    """US regular session: weekdays 9:30am-4:00pm Eastern."""
+    now = (now or datetime.now(timezone.utc)).astimezone(EASTERN)
+    return now.weekday() < 5 and clock(9, 30) <= now.time() <= clock(16, 0)
+
+
+def send_chunks(blocks: list[str], silent: bool = False) -> int:
+    """Send blocks as few messages, each under Telegram's size cap."""
+    messages, current = [], ""
+    for block in blocks:
+        if current and len(current) + len(block) + 2 > MESSAGE_LIMIT:
+            messages.append(current)
+            current = block
+        else:
+            current = f"{current}\n\n{block}" if current else block
+    if current:
+        messages.append(current)
+    return sum(1 for m in messages if send(m, silent=silent))
+
+
 # ─── State ────────────────────────────────────────────────────────────────────
 
 def load_state() -> dict:
@@ -86,7 +114,7 @@ def load_state() -> dict:
 
 def save_state(state: dict) -> None:
     CACHE_DIR.mkdir(exist_ok=True)
-    state["sent"] = state["sent"][-400:]
+    state["sent"] = state["sent"][-3000:]
     STATE_FILE.write_text(json.dumps(state))
 
 
@@ -216,44 +244,65 @@ def about_company(title: str, ticker: str, name: str) -> bool:
     return any(re.search(rf"\b{re.escape(alias)}\b", flat) for alias in aliases(name))
 
 
-def breaking() -> str | None:
-    """One message covering anything new since the last run, or None if quiet."""
+def breaking() -> list[str]:
+    """Everything new since the last run, as message blocks (empty when quiet)."""
     state = load_state()
     seen = set(state["sent"])
+    rows = universe_rows()
     blocks = []
 
-    fresh_movers = [m for m in big_movers(universe_rows()) if f"mover:{m['ticker']}" not in seen]
-    if fresh_movers:
-        lines = ["<b>Big moves</b>"]
-        for m in fresh_movers[:6]:
-            reason = ""
-            # Yahoo mixes peer stories into a ticker's feed, so only quote a
-            # headline that actually names this company.
-            for story in headlines(m["ticker"], since_hours=24, limit=4):
-                if about_company(story["title"], m["ticker"], m["name"]):
-                    reason = f" — {esc(story['title'])}"
-                    break
-            lines.append(f"{'▲' if m['change'] > 0 else '▼'} <b>{esc(m['ticker'])}</b> "
-                         f"{m['change']:+.1f}% (${m['price']:,.2f}){reason}")
-            seen.add(f"mover:{m['ticker']}")
+    feed = collect(rows)
+
+    # Company headlines, grouped under the tickers they mention.
+    fresh = [n for n in feed["company"] if f"news:{n['id']}" not in seen][:MAX_PER_SECTION]
+    if fresh:
+        lines = ["📰 <b>Company news</b>"]
+        for n in fresh:
+            tickers = " ".join(f"<b>{esc(t)}</b>" for t in n["tickers"][:3])
+            lines.append(f"{tickers} · <a href=\"{esc(n['url'])}\">{esc(n['title'])}</a> <i>{esc(n['source'])}</i>")
+            seen.add(f"news:{n['id']}")
         blocks.append("\n".join(lines))
 
-    macro = [n for n in headlines("^GSPC", since_hours=3, limit=8, macro_only=True)
-             if f"news:{n['id']}" not in seen]
+    # SEC filings: the company telling the regulator something material happened.
+    filings = [f for f in feed["filings"] if f"filing:{f['id']}" not in seen][:MAX_PER_SECTION]
+    if filings:
+        lines = ["📄 <b>SEC filings</b>"]
+        for f in filings:
+            lines.append(f"<b>{esc(f['ticker'])}</b> filed <a href=\"{esc(f['url'])}\">{esc(f['form'])}</a> "
+                         f"— {esc(f['meaning'])}")
+            seen.add(f"filing:{f['id']}")
+        blocks.append("\n".join(lines))
+
+    # Price moves only mean something while the market is actually trading.
+    if market_open_now():
+        movers = [m for m in big_movers(rows) if f"mover:{m['ticker']}" not in seen][:MAX_PER_SECTION]
+        if movers:
+            lines = ["📈 <b>Big moves</b>"]
+            for m in movers:
+                reason = ""
+                # Yahoo mixes peer stories into a ticker's feed, so only quote a
+                # headline that actually names this company.
+                for story in headlines(m["ticker"], since_hours=24, limit=4):
+                    if about_company(story["title"], m["ticker"], m["name"]):
+                        reason = f" — {esc(story['title'])}"
+                        break
+                lines.append(f"{'▲' if m['change'] > 0 else '▼'} <b>{esc(m['ticker'])}</b> "
+                             f"{m['change']:+.1f}% (${m['price']:,.2f}){reason}")
+                seen.add(f"mover:{m['ticker']}")
+            blocks.append("\n".join(lines))
+
+    # Market-wide headlines.
+    macro = [n for n in feed["macro"] if f"news:{n['id']}" not in seen][:MAX_PER_SECTION]
     if macro:
-        lines = ["<b>Market headlines</b>"]
-        for n in macro[:4]:
-            lines.append(f"• <a href=\"{esc(n['url'])}\">{esc(n['title'])}</a>")
+        lines = ["🌐 <b>Market</b>"]
+        for n in macro:
+            lines.append(f"• <a href=\"{esc(n['url'])}\">{esc(n['title'])}</a> <i>{esc(n['source'])}</i>")
             seen.add(f"news:{n['id']}")
         blocks.append("\n".join(lines))
 
     state["sent"] = sorted(seen)
     save_state(state)
-    if not blocks:
-        return None
-    if url := site_url():
-        blocks.append(f"<a href=\"{esc(url)}\">Dashboard →</a>")
-    return "\n\n".join(blocks)
+    return blocks
 
 
 def main(argv=None) -> None:
@@ -266,19 +315,21 @@ def main(argv=None) -> None:
         logging.getLogger(noisy).setLevel(logging.CRITICAL)
 
     if args.mode == "test":
-        message = "✅ <b>Alerts are connected.</b>\nMorning briefs and breaking moves will arrive here."
+        blocks = ["✅ <b>Alerts are connected.</b>\nMorning briefs, company news, SEC filings and big moves "
+                  "will arrive here."]
     elif args.mode == "brief":
-        message = morning_brief()
+        blocks = [morning_brief()]
     else:
-        message = breaking()
+        blocks = breaking()
 
-    if message is None:
+    if not blocks:
         log.info("Nothing new to report.")
         return
     if args.dry_run:
-        print(message)
+        print("\n\n".join(blocks))
         return
-    log.info("Sent." if send(message, silent=(args.mode == "brief")) else "Not sent.")
+    sent = send_chunks(blocks)
+    log.info("Sent %d message(s).", sent)
 
 
 if __name__ == "__main__":

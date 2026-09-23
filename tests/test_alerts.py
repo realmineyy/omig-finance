@@ -24,3 +24,22 @@ def test_movers_are_limited_to_the_universe(monkeypatch):
     out = big_movers(rows)
     assert [m["ticker"] for m in out] == ["AAPL"]
     assert out[0]["sector"] == "Information Technology"
+
+
+def test_market_hours_gate():
+    from datetime import datetime, timezone
+    from engine.alerts import market_open_now
+    # 2026-09-23 is a Wednesday. 14:00 UTC = 10:00am ET (open), 02:00 UTC = 10pm ET (closed).
+    assert market_open_now(datetime(2026, 9, 23, 14, 0, tzinfo=timezone.utc))
+    assert not market_open_now(datetime(2026, 9, 23, 2, 0, tzinfo=timezone.utc))
+    # Saturday midday is closed.
+    assert not market_open_now(datetime(2026, 9, 26, 15, 0, tzinfo=timezone.utc))
+
+
+def test_long_alerts_are_split_into_several_messages(monkeypatch):
+    from engine import alerts
+    sent = []
+    monkeypatch.setattr(alerts, "send", lambda text, silent=False: sent.append(text) or True)
+    blocks = ["x" * 2000, "y" * 2000, "z" * 100]
+    assert alerts.send_chunks(blocks) == 2          # 2000+2000 exceeds the cap, so it splits
+    assert len(sent) == 2 and sent[0].startswith("x") and "z" in sent[1]
