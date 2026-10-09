@@ -127,7 +127,6 @@ COO,Cooper Companies (The),Health Care,Health Care Supplies,711404
 CPRT,Copart,Industrials,Diversified Support Services,900075
 GLW,Corning Inc.,Information Technology,Electronic Components,24741
 CPAY,Corpay,Financials,Transaction & Payment Processing Services,1175454
-CTVA,Corteva,Materials,Fertilizers & Agricultural Chemicals,1755672
 CSGP,CoStar Group,Real Estate,Real Estate Services,1057352
 COST,Costco,Consumer Staples,Consumer Staples Merchandise Retail,909832
 CRH,CRH plc,Materials,Construction Materials,849395
@@ -357,7 +356,6 @@ PCAR,Paccar,Industrials,Construction Machinery & Heavy Transportation Equipment,
 PKG,Packaging Corporation of America,Materials,Paper & Plastic Packaging Products & Materials,75677
 PLTR,Palantir Technologies,Information Technology,Application Software,1321655
 PANW,Palo Alto Networks,Information Technology,Systems Software,1327567
-PSKY,Paramount Skydance Corporation,Communication Services,Movies & Entertainment,2041610
 PH,Parker Hannifin,Industrials,Industrial Machinery & Supplies & Components,76334
 PAYX,Paychex,Industrials,Human Resource & Employment Services,723531
 PYPL,PayPal,Financials,Transaction & Payment Processing Services,1633917
@@ -411,6 +409,7 @@ SRE,Sempra,Utilities,Multi-Utilities,1032208
 NOW,ServiceNow,Information Technology,Systems Software,1373715
 SHW,Sherwin-Williams,Materials,Specialty Chemicals,89800
 SPG,Simon Property Group,Real Estate,Retail REITs,1063761
+SKYD,Skydance Corporation,Communication Services,Movies & Entertainment,2041610
 SWKS,Skyworks Solutions,Information Technology,Semiconductors,4127
 SJM,J.M. Smucker Company (The),Consumer Staples,Packaged Foods & Meats,91419
 SW,Smurfit Westrock,Materials,Paper & Plastic Packaging Products & Materials,2005951
@@ -450,6 +449,7 @@ TDG,TransDigm Group,Industrials,Aerospace & Defense,1260221
 TRV,Travelers Companies (The),Financials,Property & Casualty Insurance,86312
 TRMB,Trimble Inc.,Information Technology,Application Software,864749
 TFC,Truist Financial,Financials,Diversified Banks,92230
+TWLO,Twilio,Information Technology,Systems Software,1447669
 TYL,Tyler Technologies,Information Technology,Application Software,860731
 TSN,Tyson Foods,Consumer Staples,Packaged Foods & Meats,100493
 USB,U.S. Bancorp,Financials,Diversified Banks,36104
@@ -477,12 +477,12 @@ V,Visa Inc.,Financials,Transaction & Payment Processing Services,1403161
 VST,Vistra Corp.,Utilities,Electric Utilities,1692819
 VMRK,Vivmark Residential,Real Estate,Multi-Family Residential REITs,906107
 VMC,Vulcan Materials Company,Materials,Construction Materials,1396009
+VYLR,Vylor,Consumer Staples,Agricultural Products & Services,2128626
 WRB,W. R. Berkley Corporation,Financials,Property & Casualty Insurance,11544
 GWW,W. W. Grainger,Industrials,Industrial Machinery & Supplies & Components,277135
 WAB,Wabtec,Industrials,Construction Machinery & Heavy Transportation Equipment,943452
 WMT,Walmart,Consumer Staples,Consumer Staples Merchandise Retail,104169
 DIS,Walt Disney Company (The),Communication Services,Movies & Entertainment,1744489
-WBD,Warner Bros. Discovery,Communication Services,Broadcasting,1437107
 WM,Waste Management,Industrials,Environmental & Facilities Services,823768
 WAT,Waters Corporation,Health Care,Life Sciences Tools & Services,1000697
 WEC,WEC Energy Group,Utilities,Electric Utilities,783325
