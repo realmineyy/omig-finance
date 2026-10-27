@@ -378,14 +378,13 @@ PEG,Public Service Enterprise Group,Utilities,Electric Utilities,788784
 PTC,PTC Inc.,Information Technology,Application Software,857005
 PSA,Public Storage,Real Estate,Self-Storage REITs,1393311
 PHM,PulteGroup,Consumer Discretionary,Homebuilding,822416
-PWR,Quanta Services,Industrials,Construction & Engineering,1050915
-QCOM,Qualcomm,Information Technology,Semiconductors,804328
-DGX,Quest Diagnostics,Health Care,Health Care Services,1022079
 Q,Qnity Electronics,Information Technology,Semiconductor Materials & Equipment,2058873
+QCOM,Qualcomm,Information Technology,Semiconductors,804328
+PWR,Quanta Services,Industrials,Construction & Engineering,1050915
+DGX,Quest Diagnostics,Health Care,Health Care Services,1022079
 RL,Ralph Lauren Corporation,Consumer Discretionary,"Apparel, Accessories & Luxury Goods",1037038
 RJF,Raymond James Financial,Financials,Investment Banking & Brokerage,720005
 RDDT,Reddit,Communication Services,Interactive Media & Services,1713445
-RTX,RTX Corporation,Industrials,Aerospace & Defense,101829
 O,Realty Income,Real Estate,Retail REITs,726728
 REG,Regency Centers,Real Estate,Retail REITs,910606
 REGN,Regeneron Pharmaceuticals,Health Care,Biotechnology,872589
@@ -399,6 +398,7 @@ ROL,"Rollins, Inc.",Industrials,Environmental & Facilities Services,84839
 ROP,Roper Technologies,Information Technology,Electronic Equipment & Instruments,882835
 ROST,Ross Stores,Consumer Discretionary,Apparel Retail,745732
 RCL,Royal Caribbean Group,Consumer Discretionary,"Hotels, Resorts & Cruise Lines",884887
+RTX,RTX Corporation,Industrials,Aerospace & Defense,101829
 SPGI,S&P Global,Financials,Financial Exchanges & Data,64040
 CRM,Salesforce,Information Technology,Application Software,1108524
 SNDK,Sandisk,Information Technology,"Technology Hardware, Storage & Peripherals",2023554
@@ -409,7 +409,7 @@ SRE,Sempra,Utilities,Multi-Utilities,1032208
 NOW,ServiceNow,Information Technology,Systems Software,1373715
 SHW,Sherwin-Williams,Materials,Specialty Chemicals,89800
 SPG,Simon Property Group,Real Estate,Retail REITs,1063761
-SKYD,Skydance Corporation,Communication Services,Movies & Entertainment,2041610
+SKYD,Skydance,Communication Services,Movies & Entertainment,2041610
 SWKS,Skyworks Solutions,Information Technology,Semiconductors,4127
 SJM,J.M. Smucker Company (The),Consumer Staples,Packaged Foods & Meats,91419
 SW,Smurfit Westrock,Materials,Paper & Plastic Packaging Products & Materials,2005951
